@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Security Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 3. Entity Validations (Pillar 2)
+    function isValidNote(data) {
+      return data.keys().hasAll(['title', 'content', 'type', 'color', 'userId', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() <= 500
+        && data.content is string && data.content.size() <= 10000
+        && data.type in ['text', 'voice', 'drawing']
+        && data.color is string && data.color.size() <= 30
+        && data.userId is string && data.userId.size() <= 128
+        && data.createdAt is number
+        && data.updatedAt is number;
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['displayName', 'email'])
+        && data.displayName is string && data.displayName.size() <= 100
+        && data.email is string && data.email.size() <= 100
+        && (!data.keys().contains('photoURL') || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1000))
+        && (!data.keys().contains('theme') || data.theme == null || (data.theme in ['light', 'dark']))
+        && (!data.keys().contains('accentColor') || data.accentColor == null || (data.accentColor is string && data.accentColor.size() <= 30))
+        && (!data.keys().contains('baseFontSize') || data.baseFontSize == null || (data.baseFontSize is number));
+    }
+
+    // 4. Collection Rules
+    match /notes/{noteId} {
+      // Combined read rule: allows list/get if the document is owned by the user
+      // We use .get() to handle cases where the field might be missing gracefully
+      allow read: if isSignedIn() && (resource == null || resource.data.get('userId', '') == request.auth.uid);
+      
+      // Combined write rule: allows create/update/delete if ownership is maintained
+      allow write: if isSignedIn() && (
+        // Create: check incoming data
+        (resource == null && incoming().get('userId', '') == request.auth.uid) ||
+        // Update: check existing ownership and ensure it remains the same
+        (resource != null && resource.data.get('userId', '') == request.auth.uid && 
+         (request.method == 'delete' || incoming().get('userId', '') == request.auth.uid))
+      );
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile(incoming());
+      allow update: if isOwner(userId) && isValidUserProfile(incoming()) 
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'theme', 'accentColor', 'baseFontSize']);
+    }
+  }
+}

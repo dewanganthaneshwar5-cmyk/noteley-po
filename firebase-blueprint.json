@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "Note": {
+      "title": "Note",
+      "description": "A user's note containing text, voice, or drawing data.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "voice", "drawing"] },
+        "color": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["title", "content", "type", "color", "userId", "createdAt", "updatedAt"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Public profile information and settings for a user.",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "email": { "type": "string" },
+        "theme": { "type": "string", "enum": ["light", "dark"] },
+        "accentColor": { "type": "string" },
+        "baseFontSize": { "type": "number" }
+      },
+      "required": ["displayName", "email"]
+    }
+  },
+  "firestore": {
+    "/notes/{noteId}": {
+      "schema": "Note",
+      "description": "Collection of all user notes."
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents."
+    }
+  }
+}

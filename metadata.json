@@ -1,0 +1,6 @@
+{
+  "name": "Notely",
+  "description": "A stylish and minimalist notepad app with secure authentication, voice notes, and advanced search.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": []
+}
